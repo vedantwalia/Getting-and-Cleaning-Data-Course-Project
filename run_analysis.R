@@ -1,49 +1,27 @@
-library(plyr)
 library(dplyr)
-library(tidyr)
 
-testX <- read.table("test/X_test.txt")
-testY <- read.table("test/y_test.txt")
-testS <- read.table("test/subject_test.txt")
+features <- read.table("features.txt", col.names = c("n","functions"))
+activities <- read.table("activity_labels.txt", col.names = c("code", "activity"))
+subject_test <- read.table("test/subject_test.txt", col.names = "subject")
+x_test <- read.table("test/X_test.txt", col.names = features$functions)
+y_test <- read.table("test/y_test.txt", col.names = "code")
+subject_train <- read.table("train/subject_train.txt", col.names = "subject")
+x_train <- read.table("train/X_train.txt", col.names = features$functions)
+y_train <- read.table("train/y_train.txt", col.names = "code")
 
-trainX <- read.table("train/X_train.txt")
-trainY <- read.table("train/y_train.txt")
-trainS <- read.table("train/subject_train.txt")
-flabels <- read.table("features.txt")
-alabels <- read.table("activity_labels.txt")
+X <- rbind(x_train, x_test)
+Y <- rbind(y_train, y_test)
+Subject <- rbind(subject_train, subject_test)
+Merged_Data <- cbind(Subject, Y, X)
+  
+TidyData <- Merged_Data %>% select(subject, code, contains("mean"), contains("std"))
 
-trainS <- mutate(trainS, Class = "train")
-testS <- mutate(testS, Class = "test")
-
-xAll <- bind_rows(trainX, testX)
-yAll <- bind_rows(trainY, testY)
-sAll <- bind_rows(trainS, testS)
-
-colnames(xAll) <- flabels$V2
-colnames(yAll) <- c("Activity")
-colnames(sAll) <- c("Subject", "Class")
-
-all <- bind_cols(xAll, yAll, sAll)
-all_t <- tbl_df(all)
-rm(all)
+TidyData$code <- activities[TidyData$code, 2]
 
 
-valid_column_names <- make.names(names=names(all_t), unique=TRUE, allow_ = TRUE)
-names(all_t) <- valid_column_names
 
-
-all_t <- all_t %>%
-  select(Class, Subject, Activity, contains(".mean."), contains(".std.")) %>%
-  mutate(Activity = factor(Activity, labels = alabels$V2)) %>%
-  gather(Measurement, Meas_val, -(Class:Activity)) %>%
-  separate(Measurement, c("Feature_Variable", "Stat_Type", "Axis"))
-
-tidy_dataset <- all_t %>%
-  group_by(Subject, Activity, Feature_Variable, Stat_Type, Axis) %>%
-  summarize(Avg_val = mean(Meas_val)) %>%
-  spread(Stat_Type, Avg_val) %>%
-  rename("Mean" = mean, "Std" = std)
-
-
-write.table(tidy_dataset, "SummaryDataset.txt", row.names=FALSE)
+Solution <- TidyData %>%
+  group_by(subject, activity) %>%
+  summarise_all(list(mean))
+write.table(Solution, "solution.txt", row.name=FALSE)
 
